@@ -1,4 +1,4 @@
-![UI Preview](ui.png)
+![UI Preview](examples/ui.png)
 
 We use Amazon grocery review data to model and predict future shopping behavior. First, a user's purchase history is selected, and a catalog is uploaded to portal.unboxai.com. 
 
