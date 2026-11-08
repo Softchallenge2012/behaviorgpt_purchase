@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Next Purchase Results</title>
+    <style>
+      :root {
+        --bg: #f8f6f2;
+        --panel: #fffdf8;
+        --ink: #222;
+        --muted: #6d6860;
+        --line: #ddd5ca;
+        --accent: #146c43;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at 20% 0%, #fff8e7 0%, var(--bg) 45%, #efe9de 100%);
+        color: var(--ink);
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.06);
+      }
+      .top {
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+      .form-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 0.7rem;
+      }
+      input, button {
+        width: 100%;
+        padding: 0.65rem 0.75rem;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        font-size: 0.95rem;
+      }
+      button {
+        background: var(--accent);
+        border: 0;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+      .panel {
+        padding: 1rem;
+      }
+      h2 {
+        margin: 0 0 0.35rem;
+        font-size: 1.05rem;
+      }
+      .hint {
+        margin: 0 0 0.75rem;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .result-box {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        min-height: 340px;
+        padding: 0.75rem;
+        background: #fff;
+      }
+      ul {
+        margin: 0;
+        padding-left: 1.15rem;
+        max-height: 58vh;
+        overflow: auto;
+      }
+      li { margin: 0.35rem 0; }
+      .missing {
+        color: #8b2f2f;
+        font-weight: 600;
+      }
+      @media (max-width: 900px) {
+        .form-row { grid-template-columns: 1fr; }
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card top">
+        <form method="get" class="form-row">
+          <input type="text" name="user_id" placeholder="user_id" value="{{ user_id }}" />
+          <input type="text" name="start_date" placeholder="start_date (YYYY-MM-DD)" value="{{ start_date }}" />
+          <input type="text" name="end_date" placeholder="end_date (YYYY-MM-DD)" value="{{ end_date }}" />
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+
+      <div class="grid">
+        <section class="card panel">
+          <h2>Actual purchases after end date</h2>
+          <p class="hint">Source: {{ actual_path }}</p>
+          <div class="result-box">
+            {% if submitted and actual_titles %}
+            <ul>
+              {% for title in actual_titles %}
+              <li>{{ title }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="card panel">
+          <h2>Predicted purchases</h2>
+          <p class="hint">Source: {{ predicted_path }}</p>
+          <div class="result-box">
+            {% if submitted and predicted_titles %}
+            <ul>
+              {% for title in predicted_titles %}
+              <li>{{ title }}</li>
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

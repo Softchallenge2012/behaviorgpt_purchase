@@ -1,0 +1,38 @@
+{
+  "user_id": "AF5S43OTTG4RBXNGMC5OMKNEYP5A",
+  "end_date": "2023-03-01",
+  "parent_asins": [
+    "B0BQWLNTLN",
+    "B086Y768T1"
+  ],
+  "details": [
+    {
+      "parent_asin": "B0BQWLNTLN",
+      "metadata_found": true,
+      "title": "Ziba Foods Kishmish Raisins | Non-GMO, Vegan, Whole 30 Friendly & Paleo | Superfood Naturally High in Fiber, Iron and Immune Boosting Antioxidants, 2.2 lbs",
+      "main_category": "Grocery",
+      "store": "Ziba",
+      "price": "49.99",
+      "average_rating": "4.4",
+      "rating_number": "60",
+      "categories": "['Grocery & Gourmet Food', 'Produce', 'Dried Fruits & Vegetables', 'Dried Fruits', 'Dried Mixed Fruits']",
+      "features": "['Wild Grown: Grown in some of the most remote regions of southern Afghanistan, our super sweet, \"gummy bear-like\" raisins are light green in color with a delicate sweetness.', 'Natural Superfood: Ziba Foods Kishmish Raisins are rich in fiber, iron and minerals such as Potassium, calcium, magnesium, phosphorus, iron, zinc. Vitamins such as Vitamin C, folate, thiamin, niacin, riboflavin, vitamin B-6, pantothenic acid.', 'Superior Quality: Afghan Kishmish feature a distinctive long, narrow shape and bright green color, with a very sweet but not cloying flavor profile. Highly sought-after for centuries in South Asia and the Middle East.', 'Great For Snacking: A nutritious and healthy snack on its own! We love to use in granola, in nut and seed mixes, baked into quinoa and oatmeal cookies for an extra large bite of sweetness. Added to salads or any dish that calls for dry fruits!', 'Women\u2019s Empowerment: Since its inception, Ziba has maintained a constant focus on supporting and improving the role of women in Afghan society. Ziba\u2019s workforce in both management and staff positions is 80% female.']",
+      "description": "[]",
+      "catalog_id": "17"
+    },
+    {
+      "parent_asin": "B086Y768T1",
+      "metadata_found": true,
+      "title": "Ziba Foods Kishmish Raisins | Non-GMO, Vegan, Whole 30 Friendly & Paleo | Superfood Naturally High in Fiber, Iron and Immune Boosting Antioxidants",
+      "main_category": "Grocery",
+      "store": "Ziba Foods",
+      "price": "5.49",
+      "average_rating": "3.7",
+      "rating_number": "5",
+      "categories": "[]",
+      "features": "[]",
+      "description": "[]",
+      "catalog_id": "17"
+    }
+  ]
+}
