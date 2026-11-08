@@ -21,9 +21,9 @@ from behaviorgpt import Order, UnboxAIClient
 from behaviorgpt._exceptions import UnboxAIError
 
 # ---- Settings you may need to change after running `check` -------------------
-CSV_PATH = "groceries_small.csv"
+CSV_PATH = "groceries_user.csv"
 META_CSV_PATH = "meta_groceries.csv"
-CATALOG_ID = os.environ.get("UNBOXAI_CATALOG_ID", "cat_7a85d820e9a381d3b447c9ac")
+CATALOG_ID = os.environ.get("UNBOXAI_CATALOG_ID", "cat_701a6b1727de3ad6936af4d4")
 ID_COLUMN = "parent_asin"   # which column holds the catalog's item id: "parent_asin" or "asin"
 ID_PREFIX = ""              # some catalogs prefix ids, e.g. "pa" + parent_asin. Set it if `check` shows so.
 TOP_K = 10                  # how many next purchases to return per user
