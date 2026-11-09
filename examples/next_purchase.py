@@ -221,8 +221,9 @@ def predict_for(seen, k=TOP_K):
     """Rank what comes after the user's purchases, dropping anything already bought."""
     history = [Order([i]) for i in seen]
     res = client.complete(history, catalog_id=CATALOG_ID, limit=k * 3)
-    seen_set = set(seen)
-    return [it for it in res.items if it.id not in seen_set][:k]
+    # seen_set = set(seen)
+    # return [it for it in res.items if it.id not in seen_set][:k]
+    return [item for i, item in enumerate(res.items) if item not in res.items[:i]][:k]  # deduplicate by catalog row, then take top k
 
 
 def to_parent_asin_and_asin(item, lk):
@@ -251,10 +252,20 @@ def cmd_check(df):
             print("  ", i, "-> NOT FOUND:", type(e).__name__)
 
 
-def cmd_evaluate(df):
-    hist = {u: ids for u, ids in histories(df).items() if len(ids) >= 3}
-    users = list(hist)[:EVAL_USERS]
+def cmd_evaluate(df, user_id=None, start_date=None, end_date=None):
+    subset = df
+    if user_id is not None:
+        subset = subset[subset["user_id"] == user_id]
+    subset = _apply_date_window(subset, start_date=start_date, end_date=end_date)
+
+    hist = {u: ids for u, ids in histories(subset).items() if len(ids) >= 3}
+    users = [user_id] if user_id is not None else list(hist)[:EVAL_USERS]
+    if user_id is not None and user_id not in hist:
+        print(f"No users with 3+ purchases found for {user_id} in the selected subset.")
+        return []
+
     hits = tried = 0
+    results = []
     for u in users:
         ids = hist[u]
         past, target = ids[:-1], ids[-1]
@@ -263,10 +274,39 @@ def cmd_evaluate(df):
         except Exception as e:  # noqa: BLE001
             print("skip", u, type(e).__name__, e)
             continue
+        hit = target in preds
         tried += 1
-        hits += target in preds
+        hits += hit
+        predicted = preds[0] if preds else None
+        print(f"user_id={u} last_purchase={target} predicted_purchase={predicted} hit={hit}")
+        results.append({
+            "user_id": u,
+            "last_purchase": target,
+            "predicted_purchase": predicted,
+            "hit": hit,
+        })
+        
     print(f"Tested {tried} users with 3+ purchases. Last purchase found in top {TOP_K}: "
           f"{hits}/{tried} = {hits / max(tried, 1):.1%}")
+
+
+    meta_lookup = load_meta_lookup(META_CSV_PATH)
+    for i, row in enumerate(results):
+        actual_asin = row.get("last_purchase")
+        predicted_asin = row.get("predicted_purchase")
+        result_details = {"predicted": [], "actual": []}
+        if actual_asin is not None:
+            actual_meta = meta_lookup.get(actual_asin)
+            if actual_meta is not None:
+                result_details["actual"].append(actual_meta['title'])
+        if predicted_asin is not None:
+            predicted_meta = meta_lookup.get(predicted_asin)
+            if predicted_meta is not None:
+                result_details["predicted"].append(predicted_meta['title'])
+        row["result_details"] = result_details
+
+    print(results)
+    return results
 
 
 def cmd_predict(df, only_user=None, all_df=None, end_date=None):
@@ -366,6 +406,7 @@ if __name__ == "__main__":
     cmd = cli[0] if cli else "check"
 
     predict_user = None
+    evaluate_user = None
     if cmd == "predict":
         predict_args = cli[1:]
         if len(predict_args) >= 3 and start_date is None and end_date is None:
@@ -383,6 +424,16 @@ if __name__ == "__main__":
             )
         elif len(predict_args) >= 1 and not predict_args[0].startswith("cat_"):
             predict_user = predict_args[0]
+    elif cmd == "evaluate":
+        evaluate_args = cli[1:]
+        if len(evaluate_args) >= 3 and start_date is None and end_date is None:
+            evaluate_user = evaluate_args[0]
+            start_date = _parse_date_arg(evaluate_args[1], "START_DATE")
+            end_date = _parse_date_arg(evaluate_args[2], "END_DATE")
+            if start_date > end_date:
+                raise SystemExit("START_DATE must be <= END_DATE")
+        elif len(evaluate_args) >= 1 and not evaluate_args[0].startswith("cat_"):
+            evaluate_user = evaluate_args[0]
 
     all_data = load()
     data = _apply_date_window(all_data, start_date=start_date, end_date=end_date)
@@ -390,7 +441,7 @@ if __name__ == "__main__":
         if cmd == "check":
             cmd_check(data)
         elif cmd == "evaluate":
-            cmd_evaluate(data)
+            cmd_evaluate(data, user_id=evaluate_user, start_date=start_date, end_date=end_date)
         elif cmd == "predict":
             cmd_predict(data, predict_user, all_df=all_data, end_date=end_date)
         else:

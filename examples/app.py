@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Flask, render_template, request
 
-from next_purchase import _apply_date_window, _parse_date_arg, cmd_predict, load
+from next_purchase import _apply_date_window, _parse_date_arg, cmd_evaluate, cmd_predict, load
 
 APP_DIR = Path(__file__).parent
 PREDICTED_JSON = APP_DIR / "predicted_parent_asin_details.json"
@@ -21,25 +21,23 @@ def _read_json(path: Path) -> dict:
         return json.load(f)
 
 
-def _titles(payload: dict) -> list[str]:
-    details = payload.get("details") or []
-    out = []
-    for row in details:
-        title = (row.get("title") or "").strip()
-        parent_asin = (row.get("parent_asin") or "").strip()
-        if title:
-            out.append(title)
-        elif parent_asin:
-            out.append(f"(no title) {parent_asin}")
-        else:
-            out.append("(missing title)")
-    return out
+def _to_text(payload) -> str:
+    if payload is None:
+        return ""
+    if isinstance(payload, str):
+        return payload
+    try:
+        return json.dumps(payload, indent=2, ensure_ascii=False)
+    except TypeError:
+        return str(payload)
 
 
 @app.get("/")
 def index():
     predicted_payload = {}
     actual_payload = {}
+    predicted_text = ""
+    actual_text = ""
 
     user_id = request.args.get("user_id", "")
     start_date = request.args.get("start_date", "")
@@ -51,9 +49,12 @@ def index():
         end = _parse_date_arg(end_date, "end_date")
         all_data = load()
         data = _apply_date_window(all_data, start_date=start, end_date=end)
-        cmd_predict(data, user_id, all_df=all_data, end_date=end)
-        predicted_payload = _read_json(PREDICTED_JSON)
-        actual_payload = _read_json(ACTUAL_JSON)
+        result_details = cmd_evaluate(data, user_id=user_id, start_date=start, end_date=end)
+        if result_details:
+            predicted_payload = result_details[0]["result_details"].get("predicted", [])
+            actual_payload = result_details[0]["result_details"].get("actual", [])
+        predicted_text = _to_text(predicted_payload)
+        actual_text = _to_text(actual_payload)
 
     return render_template(
         "results.html",
@@ -61,12 +62,12 @@ def index():
         user_id=user_id,
         start_date=start_date,
         end_date=end_date,
-        actual_titles=_titles(actual_payload),
-        predicted_titles=_titles(predicted_payload),
+        actual_text=actual_text,
+        predicted_text=predicted_text,
         actual_path=ACTUAL_JSON.name,
         predicted_path=PREDICTED_JSON.name,
-        actual_exists=ACTUAL_JSON.exists(),
-        predicted_exists=PREDICTED_JSON.exists(),
+        actual_exists=bool(actual_text),
+        predicted_exists=bool(predicted_text),
     )
 
 

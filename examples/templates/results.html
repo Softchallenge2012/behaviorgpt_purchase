@@ -78,13 +78,18 @@
         padding: 0.75rem;
         background: #fff;
       }
-      ul {
-        margin: 0;
-        padding-left: 1.15rem;
-        max-height: 58vh;
-        overflow: auto;
+      textarea {
+        width: 100%;
+        min-height: 320px;
+        resize: vertical;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 0.75rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.8rem;
+        line-height: 1.5;
+        background: #fff;
       }
-      li { margin: 0.35rem 0; }
       .missing {
         color: #8b2f2f;
         font-weight: 600;
@@ -111,12 +116,8 @@
           <h2>Actual purchases after end date</h2>
           <p class="hint">Source: {{ actual_path }}</p>
           <div class="result-box">
-            {% if submitted and actual_titles %}
-            <ul>
-              {% for title in actual_titles %}
-              <li>{{ title }}</li>
-              {% endfor %}
-            </ul>
+            {% if submitted %}
+            <textarea readonly>{{ actual_text }}</textarea>
             {% endif %}
           </div>
         </section>
@@ -125,12 +126,8 @@
           <h2>Predicted purchases</h2>
           <p class="hint">Source: {{ predicted_path }}</p>
           <div class="result-box">
-            {% if submitted and predicted_titles %}
-            <ul>
-              {% for title in predicted_titles %}
-              <li>{{ title }}</li>
-              {% endfor %}
-            </ul>
+            {% if submitted %}
+            <textarea readonly>{{ predicted_text }}</textarea>
             {% endif %}
           </div>
         </section>
