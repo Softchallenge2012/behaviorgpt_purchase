@@ -1,12 +1,9 @@
 """Next-purchase prediction with BehaviorGPT (Unbox AI Python SDK).
 
 Usage (the API key is read from the UNBOXAI_API_KEY environment variable):
-    python next_purchase.py check [CATALOG_ID]    # does the catalog recognise our ids?
-    python next_purchase.py evaluate [CATALOG_ID] # hide each user's last purchase, see if we find it
-    python next_purchase.py predict [USER_ID]     # next purchases for every user -> predictions.csv
-    python next_purchase.py predict USER_ID       # next purchases for one user
-    python next_purchase.py predict USER_ID START_DATE END_DATE
-    python next_purchase.py predict --start-date YYYY-MM-DD --end-date YYYY-MM-DD
+    python next_purchase.py check USER_ID --start-date=START_DATE --end-date=END_DATE    # does the catalog recognise our ids?
+    python next_purchase.py evaluate USER_ID --start-date=START_DATE --end-date=END_DATE # hide each user's last purchase, see if we find it
+    python next_purchase.py predict USER_ID --start-date=START_DATE --end-date=END_DATE # predict the next purchase for a user, given their history
 
 Catalog selection priority:
 1) CATALOG_ID argument (for check/evaluate)
@@ -21,9 +18,9 @@ from behaviorgpt import Order, UnboxAIClient
 from behaviorgpt._exceptions import UnboxAIError
 
 # ---- Settings you may need to change after running `check` -------------------
-CSV_PATH = "groceries_user.csv"
+CSV_PATH = "groceries_user_meta.csv"
 META_CSV_PATH = "meta_groceries.csv"
-CATALOG_ID = os.environ.get("UNBOXAI_CATALOG_ID", "cat_701a6b1727de3ad6936af4d4")
+CATALOG_ID = os.environ.get("UNBOXAI_CATALOG_ID", "cat_dcedceacc96c7622aa72c29c")
 ID_COLUMN = "parent_asin"   # which column holds the catalog's item id: "parent_asin" or "asin"
 ID_PREFIX = ""              # some catalogs prefix ids, e.g. "pa" + parent_asin. Set it if `check` shows so.
 TOP_K = 10                  # how many next purchases to return per user
@@ -60,9 +57,7 @@ def explain_unknown_catalog(err):
 
 def load():
     df = pd.read_csv(CSV_PATH)
-    if ONLY_VERIFIED:
-        df = df[df["verified_purchase"]]
-    df = df.copy()
+    
     df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.date
     df = df.sort_values(["user_id", "timestamp"])
     return df
@@ -108,14 +103,17 @@ def _parse_window_args(argv):
     if start_date and end_date and start_date > end_date:
         raise SystemExit("--start-date must be <= --end-date")
 
+
     return args, start_date, end_date
 
 
 def _apply_date_window(df, start_date=None, end_date=None):
     if start_date is not None:
         df = df[df["timestamp"] >= start_date]
+        
     if end_date is not None:
         df = df[df["timestamp"] <= end_date]
+        
     return df
 
 
@@ -124,117 +122,21 @@ def histories(df):
     out = {}
     for uid, g in df.groupby("user_id"):
         ids = list(dict.fromkeys(ID_PREFIX + str(x) for x in g[ID_COLUMN]))
+        print(f"user_id={uid} history={len(ids)}")
         out[uid] = ids
     return out
 
-
-def lookup(df):
-    """catalog id -> (parent_asin, asin), built from our own data file."""
-    m = {}
-    for p, a, col in zip(df["parent_asin"], df["asin"], df[ID_COLUMN]):
-        m[ID_PREFIX + str(col)] = (p, a)
-    return m
-
-
-def load_meta_lookup(path=META_CSV_PATH):
-    df = pd.read_csv(path, dtype=str).fillna("")
-    if "parent_asin" not in df.columns:
-        return {}
-    df = df.drop_duplicates(subset=["parent_asin"], keep="first")
-    return df.set_index("parent_asin").to_dict(orient="index")
-
-
-def user_parent_asins_after(df, user_id, end_date):
-    if end_date is None:
-        return []
-    mask = (df["user_id"] == user_id) & (df["timestamp"] > end_date)
-    future = df.loc[mask, "parent_asin"].astype(str).tolist()
-    return list(dict.fromkeys(future))
-
-
-def print_parent_asin_details(header, parent_asins, meta_lookup):
-    print(f"\n{header}")
-    if not parent_asins:
-        print("  (none)")
-        return
-
-    detail_fields = [
-        "title",
-        "main_category",
-        "store",
-        "price",
-        "average_rating",
-        "rating_number",
-        "categories",
-        "features",
-        "description",
-        "catalog_id",
-    ]
-
-    for asin in parent_asins:
-        details = meta_lookup.get(asin)
-        if not details:
-            print(f"- {asin}: metadata not found in {META_CSV_PATH}")
-            continue
-        compact = {"parent_asin": asin}
-        for field in detail_fields:
-            value = details.get(field, "")
-            if value:
-                compact[field] = value
-        print(json.dumps(compact, ensure_ascii=True))
-
-
-def build_parent_asin_details(parent_asins, meta_lookup):
-    detail_fields = [
-        "title",
-        "main_category",
-        "store",
-        "price",
-        "average_rating",
-        "rating_number",
-        "categories",
-        "features",
-        "description",
-        "catalog_id",
-    ]
-    rows = []
-    for asin in parent_asins:
-        details = meta_lookup.get(asin)
-        if not details:
-            rows.append({"parent_asin": asin, "metadata_found": False})
-            continue
-        compact = {"parent_asin": asin, "metadata_found": True}
-        for field in detail_fields:
-            value = details.get(field, "")
-            if value:
-                compact[field] = value
-        rows.append(compact)
-    return rows
-
-
-def save_json(path, payload):
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=True)
+# def save_json(path, payload):
+#     with open(path, "w", encoding="utf-8") as f:
+#         json.dump(payload, f, indent=2, ensure_ascii=True)
 
 
 def predict_for(seen, k=TOP_K):
     """Rank what comes after the user's purchases, dropping anything already bought."""
     history = [Order([i]) for i in seen]
     res = client.complete(history, catalog_id=CATALOG_ID, limit=k * 3)
-    # seen_set = set(seen)
-    # return [it for it in res.items if it.id not in seen_set][:k]
-    return [item for i, item in enumerate(res.items) if item not in res.items[:i]][:k]  # deduplicate by catalog row, then take top k
-
-
-def to_parent_asin_and_asin(item, lk):
-    """Prefer the catalog row; fall back to our own data file."""
-    d = item.data or {}
-    if d.get("parent_asin") and d.get("asin"):
-        return d["parent_asin"], d["asin"]
-    if item.id in lk:
-        return lk[item.id]
-    raw = item.id[len(ID_PREFIX):] if ID_PREFIX and item.id.startswith(ID_PREFIX) else item.id
-    return (raw, "") if ID_COLUMN == "parent_asin" else ("", raw)
+    
+    return [item for i, item in enumerate(res.items)][:k]  # deduplicate by catalog row, then take top k
 
 
 def cmd_check(df):
@@ -278,127 +180,43 @@ def cmd_evaluate(df, user_id=None, start_date=None, end_date=None):
         tried += 1
         hits += hit
         predicted = preds[0] if preds else None
-        print(f"user_id={u} last_purchase={target} predicted_purchase={predicted} hit={hit}")
+        
+        target_title = subset.loc[(subset["user_id"] == u) & (subset[ID_COLUMN] == target), "title"].iloc[0]
+        predicted_title = subset.loc[(subset["user_id"] == u) & (subset[ID_COLUMN] == predicted), "title"].iloc[0]
         results.append({
             "user_id": u,
-            "last_purchase": target,
-            "predicted_purchase": predicted,
+            "last_purchase": target_title,
+            "predicted_purchase": predicted_title,
             "hit": hit,
         })
         
     print(f"Tested {tried} users with 3+ purchases. Last purchase found in top {TOP_K}: "
           f"{hits}/{tried} = {hits / max(tried, 1):.1%}")
 
-
-    meta_lookup = load_meta_lookup(META_CSV_PATH)
-    for i, row in enumerate(results):
-        actual_asin = row.get("last_purchase")
-        predicted_asin = row.get("predicted_purchase")
-        result_details = {"predicted": [], "actual": []}
-        if actual_asin is not None:
-            actual_meta = meta_lookup.get(actual_asin)
-            if actual_meta is not None:
-                result_details["actual"].append(actual_meta['title'])
-        if predicted_asin is not None:
-            predicted_meta = meta_lookup.get(predicted_asin)
-            if predicted_meta is not None:
-                result_details["predicted"].append(predicted_meta['title'])
-        row["result_details"] = result_details
-
     print(results)
     return results
 
 
 def cmd_predict(df, only_user=None, all_df=None, end_date=None):
-    lk = lookup(df)
-    meta_lookup = load_meta_lookup(META_CSV_PATH)
+    # lk = lookup(df)
+    # meta_lookup = load_meta_lookup(META_CSV_PATH)
     hist = histories(df)
     users = [only_user] if only_user else list(hist)
-    rows = []
+    results = []
     for u in users:
         if u not in hist:
             print("No purchases found for", u)
             continue
         for rank, it in enumerate(predict_for(hist[u]), 1):
-            p, a = to_parent_asin_and_asin(it, lk)
-            rows.append({"user_id": u, "rank": rank, "parent_asin": p, "asin": a, "score": it.score})
-    out = pd.DataFrame(rows)
-    print(out.head(20).to_string(index=False))
+            # p, a = to_parent_asin_and_asin(it, lk)
+            p = it.data.get("id", "")
+            t = it.data.get("name", "")
+            s = it.score
+            results.append({"user_id": u, "rank": rank, "parent_asin": p, "title": t, "score": s})
 
-    if only_user:
-        predicted_parent_asins = []
-        if not out.empty:
-            predicted_parent_asins = list(dict.fromkeys(out["parent_asin"].astype(str).tolist()))
-        print_parent_asin_details(
-            f"Detailed metadata for predicted parent_asin values (user_id={only_user}):",
-            predicted_parent_asins,
-            meta_lookup,
-        )
-
-        future_parent_asins = []
-        if all_df is not None and end_date is not None:
-            future_parent_asins = user_parent_asins_after(all_df, only_user, end_date)
-        print_parent_asin_details(
-            f"Detailed metadata for purchased parent_asin values after end date (user_id={only_user}, end_date={end_date}):",
-            future_parent_asins,
-            meta_lookup,
-        )
-
-        predicted_details = build_parent_asin_details(predicted_parent_asins, meta_lookup)
-        future_details = build_parent_asin_details(future_parent_asins, meta_lookup)
-
-        predicted_json_path = f"predicted_parent_asin_details_{only_user}.json"
-        if end_date is None:
-            future_json_path = f"actual_parent_asin_after_end_date_{only_user}.json"
-        else:
-            future_json_path = (
-                f"actual_parent_asin_after_{end_date.isoformat()}_{only_user}.json"
-            )
-
-        save_json(
-            predicted_json_path,
-            {
-                "user_id": only_user,
-                "end_date": end_date.isoformat() if end_date is not None else None,
-                "parent_asins": predicted_parent_asins,
-                "details": predicted_details,
-            },
-        )
-        save_json(
-            future_json_path,
-            {
-                "user_id": only_user,
-                "end_date": end_date.isoformat() if end_date is not None else None,
-                "parent_asins": future_parent_asins,
-                "details": future_details,
-            },
-        )
-        save_json(
-            "predicted_parent_asin_details.json",
-            {
-                "user_id": only_user,
-                "end_date": end_date.isoformat() if end_date is not None else None,
-                "parent_asins": predicted_parent_asins,
-                "details": predicted_details,
-            },
-        )
-        save_json(
-            "actual_parent_asin_after_end_date.json",
-            {
-                "user_id": only_user,
-                "end_date": end_date.isoformat() if end_date is not None else None,
-                "parent_asins": future_parent_asins,
-                "details": future_details,
-            },
-        )
-        print(f"\nSaved {predicted_json_path}")
-        print(f"Saved {future_json_path}")
-        print("Saved predicted_parent_asin_details.json")
-        print("Saved actual_parent_asin_after_end_date.json")
-
-    if not only_user:
-        out.to_csv("predictions.csv", index=False)
-        print("\nSaved predictions.csv")
+    print(f"Predicted {len(results)} next purchases for {len(users)} users. {results[:5]} ...")
+    return results
+    
 
 
 if __name__ == "__main__":
@@ -437,6 +255,7 @@ if __name__ == "__main__":
 
     all_data = load()
     data = _apply_date_window(all_data, start_date=start_date, end_date=end_date)
+    print(f"Filtered data: {len(data)} rows")
     try:
         if cmd == "check":
             cmd_check(data)

@@ -8,8 +8,6 @@ from flask import Flask, render_template, request
 from next_purchase import _apply_date_window, _parse_date_arg, cmd_evaluate, cmd_predict, load
 
 APP_DIR = Path(__file__).parent
-PREDICTED_JSON = APP_DIR / "predicted_parent_asin_details.json"
-ACTUAL_JSON = APP_DIR / "actual_parent_asin_after_end_date.json"
 
 app = Flask(__name__)
 
@@ -51,8 +49,8 @@ def index():
         data = _apply_date_window(all_data, start_date=start, end_date=end)
         result_details = cmd_evaluate(data, user_id=user_id, start_date=start, end_date=end)
         if result_details:
-            predicted_payload = result_details[0]["result_details"].get("predicted", [])
-            actual_payload = result_details[0]["result_details"].get("actual", [])
+            predicted_payload = result_details[0].get("predicted_purchase", [])
+            actual_payload = result_details[0].get("last_purchase", [])
         predicted_text = _to_text(predicted_payload)
         actual_text = _to_text(actual_payload)
 
@@ -64,8 +62,6 @@ def index():
         end_date=end_date,
         actual_text=actual_text,
         predicted_text=predicted_text,
-        actual_path=ACTUAL_JSON.name,
-        predicted_path=PREDICTED_JSON.name,
         actual_exists=bool(actual_text),
         predicted_exists=bool(predicted_text),
     )

@@ -114,7 +114,6 @@
       <div class="grid">
         <section class="card panel">
           <h2>Actual purchases after end date</h2>
-          <p class="hint">Source: {{ actual_path }}</p>
           <div class="result-box">
             {% if submitted %}
             <textarea readonly>{{ actual_text }}</textarea>
@@ -124,7 +123,6 @@
 
         <section class="card panel">
           <h2>Predicted purchases</h2>
-          <p class="hint">Source: {{ predicted_path }}</p>
           <div class="result-box">
             {% if submitted %}
             <textarea readonly>{{ predicted_text }}</textarea>
